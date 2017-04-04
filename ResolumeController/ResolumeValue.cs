@@ -10,6 +10,7 @@ namespace ResolumeController
     {
         public DateTime TimeStamp { get; protected set; } = DateTime.Now;
         public TimeSpan Age => DateTime.Now.Subtract(TimeStamp);
-        public abstract TCast GetValueAS<TCast>() where TCast : class;
+        public abstract TCast GetValueAS<TCast>();
+        public abstract void SetValueAS<TCast>(TCast value);
     }
 }

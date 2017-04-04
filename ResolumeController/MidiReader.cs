@@ -34,16 +34,16 @@ namespace ResolumeController
         private void OnChannelMessageReceived(object sender, ChannelMessageEventArgs e)
         {
             string logMessage;
+            Note n = (Note)(e.Message.Data1 % 12);
             switch (e.Message.Command)
             {
                 case ChannelCommand.NoteOn:
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Note n = (Note)(e.Message.Data1 % 12);
-                    logMessage = $"NoteOn >{n} (Velocity: {e.Message.Data2}, CH#{e.Message.MidiChannel}).";
+                    logMessage = $"NoteOn > {n} (Velocity: {e.Message.Data2}, CH#{e.Message.MidiChannel}).";
                     break;
                 case ChannelCommand.NoteOff:
                     Console.ForegroundColor = ConsoleColor.DarkRed;
-                    logMessage = $"NoteOff>{e.Message.Data1} (Velocity: {e.Message.Data2}, CH#{e.Message.MidiChannel}).";
+                    logMessage = $"NoteOff> {n} (Velocity: {e.Message.Data2}, CH#{e.Message.MidiChannel}).";
                     break;
                 default:
                     Console.ForegroundColor = ConsoleColor.DarkGray;

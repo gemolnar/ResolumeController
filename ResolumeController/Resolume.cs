@@ -60,6 +60,56 @@ namespace ResolumeController
         }
 
 
+        private static ResolumeValue GenerateNewResolumeValue(object argument)
+        {
+            ResolumeValue generatedResolumeValue;
+            if (argument is string)
+            {
+                generatedResolumeValue = new ResolumeValue<String>((string)argument);
+            }
+            else if (argument is int)
+            {
+                generatedResolumeValue = new ResolumeValue<Int32>((int)argument);
+            }
+            else if (argument is Single)
+            {
+                generatedResolumeValue = new ResolumeValue<Single>((float)argument);
+            }
+            else
+            {
+                throw new ApplicationException($"Type not supported: {argument.GetType().FullName}");
+            }
+            return generatedResolumeValue;
+        }
+
+        private void UpdateExistingResolumeValue(object argument, ResolumeValue oldValue)
+        {
+            if (argument is string)
+            {
+                (oldValue as ResolumeValue<string>).Value = (string)argument;
+            }
+            else if (argument is int)
+            {
+                (oldValue as ResolumeValue<int>).Value = (Int32)argument;
+            }
+            else if (argument is Single)
+            {
+                (oldValue as ResolumeValue<Single>).Value = (Single)argument;
+            }
+            else
+            {
+                throw new ApplicationException($"Type not supported: {argument.GetType().FullName}");
+            }
+        }
+
+        public static object ExtractArgumentFromMessage (OscMessage message)
+        {
+            var arguments = message.ToArray();
+            if (arguments.Length != 1)
+                throw new InvalidOperationException($"Only 1 argument per message is supported, {message.Address} contained {arguments.Length}.");
+            return arguments[0];
+        }
+
         private void ListenLoop()
         {
             try
@@ -71,48 +121,18 @@ namespace ResolumeController
                     {
                         // get the next message, this will block until one arrives or the socket is closed
                         OscBundle packet = _resolumeOscReceiver.Receive() as OscBundle;
-
                         foreach (OscMessage message in packet)
                         {
-                            var arguments = message.ToArray();
-                            if (arguments.Length != 1)
-                                throw new InvalidOperationException("More than one argument is not supported.");
-                            ResolumeValue val;
-                            if (!_values.TryGetValue(message.Address, out val))
+                            object argument = ExtractArgumentFromMessage(message);
+                            ResolumeValue resolumeValue;
+                            if (!_values.TryGetValue(message.Address, out resolumeValue))
                             {
-                                switch (arguments[0].GetType().Name)
-                                {
-                                    case "Single":
-                                        val = new ResolumeValue<Single>((Single)arguments[0]);
-                                        break;
-                                    case "String":
-                                        val = new ResolumeValue<String>((String)arguments[0]);
-                                        break;
-                                    case "Int32":
-                                        val = new ResolumeValue<Int32>((Int32)arguments[0]);
-                                        break;
-                                    default:
-                                        throw new ApplicationException($"Type not supported: {arguments[0].GetType().FullName}");
-                                }
-                                //_values.AddOrUpdate()
-                                _values[message.Address] = val;
+                                resolumeValue = GenerateNewResolumeValue(argument);
+                                _values[message.Address] = resolumeValue;
                             }
                             else
                             {
-                                switch (arguments[0].GetType().Name)
-                                {
-                                    case "Single":
-                                        (val as ResolumeValue<Single>).Value = (Single)arguments[0];
-                                        break;
-                                    case "String":
-                                        (val as ResolumeValue<String>).Value = (String)arguments[0];
-                                        break;
-                                    case "Int32":
-                                        (val as ResolumeValue<Int32>).Value = (Int32)arguments[0];
-                                        break;
-                                    default:
-                                        throw new ApplicationException($"Type not supported: {arguments[0].GetType().FullName}");
-                                }
+                                UpdateExistingResolumeValue(argument, resolumeValue);
                             }
                         }
                     }
@@ -129,5 +149,7 @@ namespace ResolumeController
                 }
             }
         }
+
+
     }
 }
