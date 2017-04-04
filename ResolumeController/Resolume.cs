@@ -10,48 +10,8 @@ using System.Threading.Tasks;
 namespace ResolumeController
 {
     public delegate void ChangedEventHandler(string oscPath, object value);
-
     
-    public abstract class ResolumeValue
-    {
-        public DateTime TimeStamp { get; protected set; } = DateTime.Now;
-        public TimeSpan Age => DateTime.Now.Subtract(TimeStamp);
-        public abstract TCast GetValueAS<TCast>() where TCast : class;
-    }
 
-    public class ResolumeValue<T> : ResolumeValue
-    {
-        private T _value;
-        public T Value {
-            get { return _value; }
-            set { TimeStamp = DateTime.Now; _value = value; }
-        }
-
-        public ResolumeValue(T value)
-        {
-            Value = value;
-        }
-
-        public override TCast GetValueAS<TCast>() 
-        {
-            return Value as TCast;
-        }
-
-        public override string ToString()
-        {
-            return $"{Value} [@{TimeStamp.Ticks}, {typeof(T).Name}]";
-        }
-    }
-
-
-    public class ResolumeValueCollection : ConcurrentDictionary<string, ResolumeValue>
-    {
-        public T GetValueAs<T>(string key)
-            where T : ResolumeValue
-        {
-            return (T)this[key];
-        }
-    }
 
     public class Resolume
     {
