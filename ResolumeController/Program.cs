@@ -29,7 +29,7 @@ namespace ResolumeController
 
             _abletonIn = new MidiReader(8);
 
-            _resolume = new Resolume(7001);
+            _resolume = new Resolume(7001, 1234); //TODO set up send port
             _resolume.Start();
 
             // wait for a key press to exit

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,22 +17,24 @@ namespace ResolumeController
     public class Resolume
     {
         private readonly OscReceiver _resolumeOscReceiver;
+        private readonly OscSender _resolumeOscSender;
         private readonly Thread _listenerThread;
         private readonly ResolumeValueCollection _values = new ResolumeValueCollection();
 
         public ChangedEventHandler ValueChanged;
 
-        public Resolume(int listenOnPort)
-        {
-            
-            _resolumeOscReceiver = new OscReceiver(listenOnPort);
+        public Resolume(int listenOnPort, int sendToPort)
+        {            
             _listenerThread = new Thread(new ThreadStart(ListenLoop));
+            _resolumeOscReceiver = new OscReceiver(listenOnPort);
+            _resolumeOscSender = new OscSender(IPAddress.Loopback, sendToPort);
         }
 
         public void Start()
         {
-            _resolumeOscReceiver.Connect();
             _listenerThread.Start();
+            _resolumeOscReceiver.Connect();
+            _resolumeOscSender.Connect();
         }
 
         public void Stop()
@@ -55,19 +58,21 @@ namespace ResolumeController
 
         public void SetValue(string oscPath, ResolumeValue value)
         {
+            _resolumeOscSender.Send(new OscMessage(oscPath, value.GetValueAS<object>()));
+            // TODO: send value via OSC
             _values[oscPath] = value;
-            ValueChanged?.Invoke(oscPath, value);
+            ValueChanged?.Invoke(oscPath, value); // TODO move changed event to receive
         }
 
 
         private static ResolumeValue GenerateNewResolumeValue(object argument)
         {
             ResolumeValue generatedResolumeValue;
-            if (argument is string)
+            if (argument is String)
             {
                 generatedResolumeValue = new ResolumeValue<String>((string)argument);
             }
-            else if (argument is int)
+            else if (argument is Int32)
             {
                 generatedResolumeValue = new ResolumeValue<Int32>((int)argument);
             }
@@ -82,19 +87,19 @@ namespace ResolumeController
             return generatedResolumeValue;
         }
 
-        private void UpdateExistingResolumeValue(object argument, ResolumeValue oldValue)
+        private static void UpdateExistingResolumeValue(object argument, ResolumeValue oldValue)
         {
-            if (argument is string)
+            if (argument is String)
             {
-                (oldValue as ResolumeValue<string>).Value = (string)argument;
+                (oldValue as ResolumeValue<String>).Value = (string)argument;
             }
-            else if (argument is int)
+            else if (argument is Int32)
             {
-                (oldValue as ResolumeValue<int>).Value = (Int32)argument;
+                (oldValue as ResolumeValue<Int32>).Value = (int)argument;
             }
             else if (argument is Single)
             {
-                (oldValue as ResolumeValue<Single>).Value = (Single)argument;
+                (oldValue as ResolumeValue<Single>).Value = (float)argument;
             }
             else
             {
@@ -102,7 +107,7 @@ namespace ResolumeController
             }
         }
 
-        public static object ExtractArgumentFromMessage (OscMessage message)
+        private static object ExtractArgumentFromMessage (OscMessage message)
         {
             var arguments = message.ToArray();
             if (arguments.Length != 1)
