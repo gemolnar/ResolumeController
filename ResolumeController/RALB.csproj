@@ -76,6 +76,7 @@
       <SubType>Designer</SubType>
     </None>
     <None Include="packages.config" />
+    <None Include="UserRemoteScripts\deploy.bat" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="UserRemoteScripts\UserConfiguration.txt" />
@@ -88,7 +89,7 @@
     <Error Condition="!Exists('..\packages\Microsoft.Net.Compilers.2.0.1\build\Microsoft.Net.Compilers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Net.Compilers.2.0.1\build\Microsoft.Net.Compilers.props'))" />
   </Target>
   <PropertyGroup>
-    <PostBuildEvent>copy $(ProjectDir)\UserRemoteScripts\UserConfiguration.txt "c:\Users\geri\AppData\Roaming\Ableton\Live 9.7.1\Preferences\User Remote Scripts\ResolumeController\"</PostBuildEvent>
+    <PostBuildEvent>call "$(ProjectDir)\UserRemoteScripts\deploy.bat"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
