@@ -9,34 +9,31 @@ namespace ResolumeController
     public sealed class ResolumeValue<T> : ResolumeValue
     {
         private T _value;
-        public T Value {
-            get {
+        public override object LooselyTypedValue => _value;
+        public T Value
+        {
+            get
+            {
                 return _value;
             }
-            set {
+            set
+            {
+                var sinceLastUpdate = DateTime.Now.Subtract(TimeStamp);
                 TimeStamp = DateTime.Now;
+                _updateCount++;
                 _value = value;
             }
         }
 
+
         public ResolumeValue(T value)
         {
             Value = value;
-        }
-
-        public override TCast GetValueAS<TCast>()
-        {
-            return (TCast)(object)Value;
-        }
-
-        public override void SetValueAS<TCast>(TCast value)
-        {
-            _value = (T)(object)value;
-        }
+        } 
 
         public override string ToString()
         {
-            return $"{Value} [@{TimeStamp.Ticks}, {typeof(T).Name}]";
+            return $"[@{TimeStamp.ToString("mm:ss.fff")}] ({typeof(T).Name}){Value}";
         }
 
     }

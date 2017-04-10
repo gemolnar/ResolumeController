@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace ResolumeController
 {
-    public delegate void ChangedEventHandler(string oscPath, object value);
+    public delegate void ChangedEventHandler(string oscPath, ResolumeValue value);
     
 
 
@@ -19,15 +19,40 @@ namespace ResolumeController
         private readonly OscReceiver _resolumeOscReceiver;
         private readonly OscSender _resolumeOscSender;
         private readonly Thread _listenerThread;
+        private readonly Thread _mutatorThread;
         private readonly ResolumeValueCollection _values = new ResolumeValueCollection();
+        private readonly ResolumeMutatorCollection _mutators = new ResolumeMutatorCollection();
+        private bool _isStopping = false;
 
-        public ChangedEventHandler ValueChanged;
+        public event ChangedEventHandler ValueChanged;
+        public IEnumerable<string> KnownAddresses => _values.Keys; 
 
-        public Resolume(int listenOnPort, int sendToPort)
+        public Resolume(int listenOnPort, IPAddress sendToAddress, int sendToPort)
         {            
             _listenerThread = new Thread(new ThreadStart(ListenLoop));
+            _mutatorThread = new Thread(new ThreadStart(MutatorLoop));
+            _mutatorThread.Priority = ThreadPriority.AboveNormal;
             _resolumeOscReceiver = new OscReceiver(listenOnPort);
-            _resolumeOscSender = new OscSender(IPAddress.Loopback, sendToPort);
+            _resolumeOscSender = new OscSender(sendToAddress, 0, sendToPort);
+        }
+
+        private void MutatorLoop()
+        {
+            while(!_isStopping)
+            {
+                List<Tuple<string, object>> messages = new List<Tuple<string, object>>();
+                foreach (var mutatorAddress in _mutators.Keys)
+                {
+                    var m = _mutators[mutatorAddress];
+                    object v;
+                    if (m.TryGetValue(out v))
+                    {
+                        messages.Add(Tuple.Create(mutatorAddress, v));
+                    }
+                }
+                SendValues(messages.ToArray());
+                Thread.Sleep(10);
+            }
         }
 
         public void Start()
@@ -35,12 +60,18 @@ namespace ResolumeController
             _listenerThread.Start();
             _resolumeOscReceiver.Connect();
             _resolumeOscSender.Connect();
+            _mutatorThread.Start();
         }
 
         public void Stop()
         {
-            _resolumeOscReceiver.Close();
-            _listenerThread.Join();
+            _isStopping = true;
+            _resolumeOscSender.Dispose();
+            _resolumeOscReceiver.Dispose();
+            if (!_listenerThread.Join(1500))
+            {
+                _listenerThread.Abort();
+            }
         }
 
         public ResolumeValue GetValue(string oscPath)
@@ -56,12 +87,23 @@ namespace ResolumeController
             }
         }
 
-        public void SetValue(string oscPath, ResolumeValue value)
+        public void SendValues(params Tuple<string, object>[] messages)
         {
-            _resolumeOscSender.Send(new OscMessage(oscPath, value.GetValueAS<object>()));
-            // TODO: send value via OSC
-            _values[oscPath] = value;
-            ValueChanged?.Invoke(oscPath, value); // TODO move changed event to receive
+            var b = new OscBundle(DateTime.Now, messages.Select(m => new OscMessage(m.Item1, m.Item2)).ToArray());
+            _resolumeOscSender.Send(b);
+        }
+
+
+        public void SendValue(string oscAddress, object value)
+        {
+            var b = new OscBundle(DateTime.Now, new OscMessage(oscAddress, value));
+            _resolumeOscSender.Send(b);
+        }
+
+
+        internal void SetMutator<T>(string oscAddress, ResolumeMutator<T> mutator)
+        {
+            _mutators[oscAddress] = mutator;    
         }
 
 
@@ -107,6 +149,7 @@ namespace ResolumeController
             }
         }
 
+
         private static object ExtractArgumentFromMessage (OscMessage message)
         {
             var arguments = message.ToArray();
@@ -139,6 +182,7 @@ namespace ResolumeController
                             {
                                 UpdateExistingResolumeValue(argument, resolumeValue);
                             }
+                            ValueChanged?.Invoke(message.Address, resolumeValue);
                         }
                     }
                 }
